@@ -42,23 +42,25 @@ def load_kr_stocks_cached():
     try:
         with st.spinner("🇰🇷 한국 주식 데이터 로딩 중..."):
             # krx = fdr.StockListing('KRX')
+            print('before_loading_krx')
             krx_kospi = fdr.StockListing('KOSPI')
             krx_kosdaq = fdr.StockListing('KOSDAQ')
-            krx_konex = fdr.StockListing('KONEX')
+            # krx_konex = fdr.StockListing('KONEX')
             # krx_kosd_glb = fdr.StockListing('KOSDAQ GLOBAL')
-            krx = pd.concat([krx_kospi,krx_kosdaq,krx_konex])
-
+            krx = pd.concat([krx_kospi,krx_kosdaq])
+            print('after_loading_krx')
 
             def add_suffix(row):
                 if row['Market'] == 'KOSPI': return f"{row['Code']}.KS"
                 elif row['Market'] == 'KOSDAQ': return f"{row['Code']}.KQ"
-                elif row['Market'] == 'KONEX': return f"{row['Code']}.KN"
+                # elif row['Market'] == 'KONEX': return f"{row['Code']}.KN"
                 else: return f"{row['Code']}.KS"
 
             krx['Ticker'] = krx.apply(add_suffix, axis=1)
             kr_stock_names = dict(zip(krx['Ticker'], krx['Name']))
 
             kr_name_to_tickers = {}
+            print('before for문')
             for ticker, name in kr_stock_names.items():
                 if name not in kr_name_to_tickers:
                     kr_name_to_tickers[name] = []
@@ -70,10 +72,11 @@ def load_kr_stocks_cached():
                         kr_name_to_tickers[partial_name] = []
                     if ticker not in kr_name_to_tickers[partial_name]:
                         kr_name_to_tickers[partial_name].append(ticker)
-
+            print('after for문')
             total = len(krx)
             kospi = len(krx[krx['Market'] == 'KOSPI'])
             kosdaq = len(krx[krx['Market'] == 'KOSDAQ'])
+            print('after counting')
 
             st.success(f"✅ 한국 주식: {total:,}개 (코스피 {kospi:,}, 코스닥 {kosdaq:,})")
             return {'names': kr_stock_names, 'index': kr_name_to_tickers, 'total': total}
