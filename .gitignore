@@ -16,33 +16,16 @@ parts/
 sdist/
 var/
 wheels/
-share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # Virtual Environment
-env/
 venv/
 ENV/
-env.bak/
-venv.bak/
-
-# Streamlit
-.streamlit/secrets.toml
-.streamlit/config.toml
-
-# 데이터 파일 (용량 큰 파일 제외)
-streamlit_data/
-stock_analysis_output/
-*.csv
-*.xlsx
-*.json
-
-# Jupyter Notebook
-.ipynb_checkpoints
-*.ipynb
+env/
+.venv
+.env
 
 # IDE
 .vscode/
@@ -50,26 +33,26 @@ stock_analysis_output/
 *.swp
 *.swo
 *~
+.DS_Store
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# Data files (로컬 데이터만)
+streamlit_data/
+*.json
+*.csv
+*.xlsx
+
+# Logs
+*.log
 
 # OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
-Desktop.ini
 
-# 로그 파일
-*.log
-
-# 임시 파일
+# Temporary files
 *.tmp
-*.temp
-
-# 차트 이미지 (선택적 - GitHub에 올리고 싶다면 이 줄 삭제)
-stock_charts/
-*.png
-*.jpg
-*.jpeg
+*.bak
+*.cache
