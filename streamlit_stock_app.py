@@ -41,13 +41,13 @@ def load_kr_stocks_cached():
     """한국 주식 로드"""
     try:
         with st.spinner("🇰🇷 한국 주식 데이터 로딩 중..."):
-            # krx = fdr.StockListing('KRX')
             print('before_loading_krx')
-            krx_kospi = fdr.StockListing('KOSPI')
-            krx_kosdaq = fdr.StockListing('KOSDAQ')
+            krx = fdr.StockListing('KRX')
+            # krx_kospi = fdr.StockListing('KOSPI')
+            # krx_kosdaq = fdr.StockListing('KOSDAQ')
             # krx_konex = fdr.StockListing('KONEX')
             # krx_kosd_glb = fdr.StockListing('KOSDAQ GLOBAL')
-            krx = pd.concat([krx_kospi,krx_kosdaq])
+            # krx = pd.concat([krx_kospi,krx_kosdaq])
             print('after_loading_krx')
 
             def add_suffix(row):
