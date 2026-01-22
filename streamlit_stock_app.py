@@ -41,7 +41,13 @@ def load_kr_stocks_cached():
     """한국 주식 로드"""
     try:
         with st.spinner("🇰🇷 한국 주식 데이터 로딩 중..."):
-            krx = fdr.StockListing('KRX')
+            # krx = fdr.StockListing('KRX')
+            krx_kospi = fdr.StockListing('KOSPI')
+            krx_kosdaq = fdr.StockListing('KOSDAQ')
+            krx_konex = fdr.StockListing('KONEX')
+            # krx_kosd_glb = fdr.StockListing('KOSDAQ GLOBAL')
+            krx = pd.concat([krx_kospi,krx_kosdaq,krx_konex])
+
 
             def add_suffix(row):
                 if row['Market'] == 'KOSPI': return f"{row['Code']}.KS"
@@ -93,8 +99,9 @@ def load_us_stocks_cached():
             total = len(df_us)
             nasdaq = len(df_nasdaq)
             nyse = len(df_nyse)
+            amex = len(df_amex)
 
-            st.success(f"✅ 미국 주식: {total:,}개 (NASDAQ {nasdaq:,}, NYSE {nyse:,})")
+            st.success(f"✅ 미국 주식: {total:,}개 (NASDAQ {nasdaq:,}, NYSE {nyse:,}, AMEX {amex:,})")
             return {'df': df_us, 'names': us_names, 'total': total}
     except Exception as e:
         st.error(f"❌ 미국 주식 로드 실패: {e}")
