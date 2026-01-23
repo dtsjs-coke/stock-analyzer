@@ -38,29 +38,123 @@ st.markdown("""
 
 @st.cache_data(ttl=86400)
 def load_kr_stocks_cached():
-    """한국 주식 로드"""
+    """한국 주식 로드 - 다중 소스 활용"""
+
+    # 방법 1: pykrx 시도 (네이버 금융 기반)
     try:
-        with st.spinner("🇰🇷 한국 주식 데이터 로딩 중..."):
-            print('before_loading_krx')
+        with st.spinner("🇰🇷 한국 주식 데이터 로딩 중... (pykrx)"):
+            from pykrx import stock
+
+            # 코스피 + 코스닥 티커 목록
+            kospi_tickers = stock.get_market_ticker_list(market="KOSPI")
+            kosdaq_tickers = stock.get_market_ticker_list(market="KOSDAQ")
+
+            # 종목명 가져오기
+            kr_stock_names = {}
+            for ticker in kospi_tickers:
+                try:
+                    name = stock.get_market_ticker_name(ticker)
+                    kr_stock_names[f"{ticker}.KS"] = name
+                except:
+                    continue
+
+            for ticker in kosdaq_tickers:
+                try:
+                    name = stock.get_market_ticker_name(ticker)
+                    kr_stock_names[f"{ticker}.KQ"] = name
+                except:
+                    continue
+
+            if len(kr_stock_names) > 100:  # 최소 100개 이상이면 성공
+                # 검색 인덱스 생성
+                kr_name_to_tickers = {}
+                for ticker, name in kr_stock_names.items():
+                    if name not in kr_name_to_tickers:
+                        kr_name_to_tickers[name] = []
+                    kr_name_to_tickers[name].append(ticker)
+
+                    for i in range(2, len(name) + 1):
+                        partial_name = name[:i]
+                        if partial_name not in kr_name_to_tickers:
+                            kr_name_to_tickers[partial_name] = []
+                        if ticker not in kr_name_to_tickers[partial_name]:
+                            kr_name_to_tickers[partial_name].append(ticker)
+
+                total = len(kr_stock_names)
+                kospi = len([t for t in kr_stock_names.keys() if t.endswith('.KS')])
+                kosdaq = len([t for t in kr_stock_names.keys() if t.endswith('.KQ')])
+
+                st.success(f"✅ 한국 주식: {total:,}개 (코스피 {kospi:,}, 코스닥 {kosdaq:,})")
+                return {'names': kr_stock_names, 'index': kr_name_to_tickers, 'total': total}
+    except Exception as e:
+        st.warning(f"⚠️ pykrx 로드 실패: {str(e)[:50]}")
+
+    # 방법 2: yfinance screener 활용
+    try:
+        with st.spinner("🇰🇷 한국 주식 데이터 로딩 중... (yfinance)"):
+            import requests
+
+            # Yahoo Finance Korea 종목 리스트 스크래핑
+            url = "https://query2.finance.yahoo.com/v1/finance/screener/predefined/saved"
+            params = {
+                'formatted': 'false',
+                'lang': 'en-US',
+                'region': 'US',
+                'scrIds': 'korea_equity',
+                'count': 2500
+            }
+
+            response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                quotes = data.get('finance', {}).get('result', [{}])[0].get('quotes', [])
+
+                kr_stock_names = {}
+                for quote in quotes:
+                    symbol = quote.get('symbol', '')
+                    name = quote.get('shortName') or quote.get('longName', '')
+                    if symbol and name:
+                        kr_stock_names[symbol] = name
+
+                if len(kr_stock_names) > 100:
+                    # 검색 인덱스 생성
+                    kr_name_to_tickers = {}
+                    for ticker, name in kr_stock_names.items():
+                        if name not in kr_name_to_tickers:
+                            kr_name_to_tickers[name] = []
+                        kr_name_to_tickers[name].append(ticker)
+
+                        for i in range(2, len(name) + 1):
+                            partial_name = name[:i]
+                            if partial_name not in kr_name_to_tickers:
+                                kr_name_to_tickers[partial_name] = []
+                            if ticker not in kr_name_to_tickers[partial_name]:
+                                kr_name_to_tickers[partial_name].append(ticker)
+
+                    total = len(kr_stock_names)
+                    kospi = len([t for t in kr_stock_names.keys() if t.endswith('.KS')])
+                    kosdaq = len([t for t in kr_stock_names.keys() if t.endswith('.KQ')])
+
+                    st.success(f"✅ 한국 주식: {total:,}개 (코스피 {kospi:,}, 코스닥 {kosdaq:,})")
+                    return {'names': kr_stock_names, 'index': kr_name_to_tickers, 'total': total}
+    except Exception as e:
+        st.warning(f"⚠️ yfinance screener 로드 실패: {str(e)[:50]}")
+
+    # 방법 3: FinanceDataReader (원본 시도)
+    try:
+        with st.spinner("🇰🇷 한국 주식 데이터 로딩 중... (FinanceDataReader)"):
             krx = fdr.StockListing('KRX')
-            # krx_kospi = fdr.StockListing('KOSPI')
-            # krx_kosdaq = fdr.StockListing('KOSDAQ')
-            # krx_konex = fdr.StockListing('KONEX')
-            # krx_kosd_glb = fdr.StockListing('KOSDAQ GLOBAL')
-            # krx = pd.concat([krx_kospi,krx_kosdaq])
-            print('after_loading_krx')
 
             def add_suffix(row):
                 if row['Market'] == 'KOSPI': return f"{row['Code']}.KS"
                 elif row['Market'] == 'KOSDAQ': return f"{row['Code']}.KQ"
-                # elif row['Market'] == 'KONEX': return f"{row['Code']}.KN"
+                elif row['Market'] == 'KONEX': return f"{row['Code']}.KN"
                 else: return f"{row['Code']}.KS"
 
             krx['Ticker'] = krx.apply(add_suffix, axis=1)
             kr_stock_names = dict(zip(krx['Ticker'], krx['Name']))
 
             kr_name_to_tickers = {}
-            print('before for문')
             for ticker, name in kr_stock_names.items():
                 if name not in kr_name_to_tickers:
                     kr_name_to_tickers[name] = []
@@ -72,18 +166,102 @@ def load_kr_stocks_cached():
                         kr_name_to_tickers[partial_name] = []
                     if ticker not in kr_name_to_tickers[partial_name]:
                         kr_name_to_tickers[partial_name].append(ticker)
-            print('after for문')
+
             total = len(krx)
             kospi = len(krx[krx['Market'] == 'KOSPI'])
             kosdaq = len(krx[krx['Market'] == 'KOSDAQ'])
-            print('after counting')
 
             st.success(f"✅ 한국 주식: {total:,}개 (코스피 {kospi:,}, 코스닥 {kosdaq:,})")
             return {'names': kr_stock_names, 'index': kr_name_to_tickers, 'total': total}
     except Exception as e:
-        st.error(f"❌ 한국 주식 로드 실패: {e}")
-        fallback = {"005930.KS": "삼성전자", "000660.KS": "SK하이닉스"}
-        return {'names': fallback, 'index': {}, 'total': len(fallback)}
+        st.warning(f"⚠️ FinanceDataReader 로드 실패: {str(e)[:50]}")
+
+    # 방법 4: GitHub CSV 파일 (정적 데이터)
+    try:
+        with st.spinner("🇰🇷 한국 주식 데이터 로딩 중... (GitHub CSV)"):
+            # 공개 GitHub CSV 파일 사용
+            csv_url = "https://raw.githubusercontent.com/FinanceData/FinanceDataReader/master/tests/krx_stocks.csv"
+            df = pd.read_csv(csv_url)
+
+            kr_stock_names = {}
+            for _, row in df.iterrows():
+                ticker = f"{row['Code']}.KS" if row.get('Market') == 'KOSPI' else f"{row['Code']}.KQ"
+                kr_stock_names[ticker] = row['Name']
+
+            if len(kr_stock_names) > 100:
+                # 검색 인덱스 생성
+                kr_name_to_tickers = {}
+                for ticker, name in kr_stock_names.items():
+                    if name not in kr_name_to_tickers:
+                        kr_name_to_tickers[name] = []
+                    kr_name_to_tickers[name].append(ticker)
+
+                    for i in range(2, len(name) + 1):
+                        partial_name = name[:i]
+                        if partial_name not in kr_name_to_tickers:
+                            kr_name_to_tickers[partial_name] = []
+                        if ticker not in kr_name_to_tickers[partial_name]:
+                            kr_name_to_tickers[partial_name].append(ticker)
+
+                total = len(kr_stock_names)
+                st.success(f"✅ 한국 주식: {total:,}개 (GitHub CSV)")
+                return {'names': kr_stock_names, 'index': kr_name_to_tickers, 'total': total}
+    except Exception as e:
+        st.warning(f"⚠️ GitHub CSV 로드 실패: {str(e)[:50]}")
+
+    # 최종 Fallback: 하드코딩 데이터
+    st.warning("⚠️ 모든 소스 실패 - 인기 종목만 제공합니다 (100개)")
+
+    fallback = {
+        # 코스피 주요 종목
+        "005930.KS": "삼성전자", "000660.KS": "SK하이닉스", "005490.KS": "POSCO홀딩스",
+        "035420.KS": "NAVER", "051910.KS": "LG화학", "005380.KS": "현대차",
+        "006400.KS": "삼성SDI", "035720.KS": "카카오", "000270.KS": "기아",
+        "068270.KS": "셀트리온", "207940.KS": "삼성바이오로직스", "105560.KS": "KB금융",
+        "055550.KS": "신한지주", "012330.KS": "현대모비스", "028260.KS": "삼성물산",
+        "017670.KS": "SK텔레콤", "066570.KS": "LG전자", "003670.KS": "포스코퓨처엠",
+        "096770.KS": "SK이노베이션", "009150.KS": "삼성전기", "018260.KS": "삼성에스디에스",
+        "034730.KS": "SK", "015760.KS": "한국전력", "010950.KS": "S-Oil",
+        "032830.KS": "삼성생명", "003550.KS": "LG", "086790.KS": "하나금융지주",
+        "033780.KS": "KT&G", "011200.KS": "HMM", "009540.KS": "HD한국조선해양",
+        "000810.KS": "삼성화재", "024110.KS": "기업은행", "316140.KS": "우리금융지주",
+        "030200.KS": "KT", "047810.KS": "한국항공우주", "010130.KS": "고려아연",
+        "000720.KS": "현대건설", "138040.KS": "메리츠금융지주", "004020.KS": "현대제철",
+        "028050.KS": "삼성엔지니어링", "011170.KS": "롯데케미칼", "032640.KS": "LG유플러스",
+        "009830.KS": "한화솔루션", "010140.KS": "삼성중공업", "051900.KS": "LG생활건강",
+        "000100.KS": "유한양행", "161390.KS": "한국타이어앤테크놀로지", "011070.KS": "LG이노텍",
+        "090430.KS": "아모레퍼시픽", "036570.KS": "엔씨소프트", "042660.KS": "한화오션",
+
+        # 코스닥 주요 종목
+        "247540.KQ": "에코프로비엠", "086520.KQ": "에코프로", "091990.KQ": "셀트리온헬스케어",
+        "068760.KQ": "셀트리온제약", "293490.KQ": "카카오게임즈", "041510.KQ": "에스엠",
+        "035900.KQ": "JYP Ent.", "122870.KQ": "와이지엔터테인먼트", "352820.KQ": "하이브",
+        "214150.KQ": "클래시스", "196170.KQ": "알테오젠", "145020.KQ": "휴젤",
+        "357780.KQ": "솔브레인", "263750.KQ": "펄어비스", "058470.KQ": "리노공업",
+        "039030.KQ": "이오테크닉스", "095340.KQ": "ISC", "067310.KQ": "하나마이크론",
+        "403870.KQ": "HPSP", "277810.KQ": "레인보우로보틱스", "454910.KQ": "두산로보틱스",
+        "328130.KQ": "루닛", "179720.KQ": "렌딧", "091580.KQ": "상신이디피",
+        "078600.KQ": "대주전자재료", "036830.KQ": "솔브레인홀딩스", "095660.KQ": "네오위즈",
+        "048410.KQ": "현대바이오", "214450.KQ": "파마리서치", "214370.KQ": "케어젠",
+        "065510.KQ": "휴비츠", "043150.KQ": "바텍", "217270.KQ": "넵튠",
+        "084370.KQ": "유진테크", "036810.KQ": "에프에스티", "101490.KQ": "에스앤에스텍",
+    }
+
+    # Fallback용 검색 인덱스 생성
+    kr_name_to_tickers = {}
+    for ticker, name in fallback.items():
+        if name not in kr_name_to_tickers:
+            kr_name_to_tickers[name] = []
+        kr_name_to_tickers[name].append(ticker)
+
+        for i in range(2, len(name) + 1):
+            partial_name = name[:i]
+            if partial_name not in kr_name_to_tickers:
+                kr_name_to_tickers[partial_name] = []
+            if ticker not in kr_name_to_tickers[partial_name]:
+                kr_name_to_tickers[partial_name].append(ticker)
+
+    return {'names': fallback, 'index': kr_name_to_tickers, 'total': len(fallback)}
 
 
 @st.cache_data(ttl=86400)
@@ -102,9 +280,8 @@ def load_us_stocks_cached():
             total = len(df_us)
             nasdaq = len(df_nasdaq)
             nyse = len(df_nyse)
-            amex = len(df_amex)
 
-            st.success(f"✅ 미국 주식: {total:,}개 (NASDAQ {nasdaq:,}, NYSE {nyse:,}, AMEX {amex:,})")
+            st.success(f"✅ 미국 주식: {total:,}개 (NASDAQ {nasdaq:,}, NYSE {nyse:,})")
             return {'df': df_us, 'names': us_names, 'total': total}
     except Exception as e:
         st.error(f"❌ 미국 주식 로드 실패: {e}")
@@ -1002,11 +1179,6 @@ def main():
 
     analyzer = StreamlitStockAnalyzer()
 
-    page = st.sidebar.radio("메뉴", ["🔍 단일 종목 분석"])
-
-    if page == "🔍 단일 종목 분석":
-        show_single_analysis_enhanced(analyzer)
-
     # 유저 가이드 표시
     show_user_guide_sidebar()
 
@@ -1022,6 +1194,10 @@ def main():
         - 마지막 업데이트: 앱 시작 시
         """)
 
+    page = st.sidebar.radio("메뉴", ["🔍 단일 종목 분석"])
+
+    if page == "🔍 단일 종목 분석":
+        show_single_analysis_enhanced(analyzer)
 
 
 def show_single_analysis_enhanced(analyzer):
