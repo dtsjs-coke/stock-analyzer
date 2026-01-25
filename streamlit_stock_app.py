@@ -1256,16 +1256,20 @@ def show_single_analysis_enhanced(analyzer):
     st.markdown("---")
 
     # 검색
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        opts = ["🇺🇸 미국", "🇰🇷 한국", "🇯🇵 일본", "🌐 기타"]
-        country = st.selectbox("🌍 국가", opts, index=opts.index(st.session_state.selected_country))
-        st.session_state.selected_country = country
+    st.markdown("### 🌍 국가 선택")
+    opts = ["🇺🇸 미국", "🇰🇷 한국", "🇯🇵 일본", "🌐 기타"]
+    country = st.radio(
+        "국가를 선택하세요",
+        opts,
+        index=opts.index(st.session_state.selected_country),
+        horizontal=True,
+        label_visibility="collapsed"
+    )
+    st.session_state.selected_country = country
 
-    with col2:
-        placeholders = {"🇰🇷 한국": "예: 삼성, 005930", "🇺🇸 미국": "예: AAPL, TSLA",
-                       "🇯🇵 일본": "예: 7203.T", "🌐 기타": "예: 0700.HK"}
-        ticker_input = st.text_input("🔍 종목 검색", placeholder=placeholders[country])
+    placeholders = {"🇰🇷 한국": "예: 삼성, 005930", "🇺🇸 미국": "예: AAPL, TSLA",
+                   "🇯🇵 일본": "예: 7203.T", "🌐 기타": "예: 0700.HK"}
+    ticker_input = st.text_input("🔍 종목 검색", placeholder=placeholders[country])
 
     # 검색 결과
     if ticker_input and len(ticker_input) >= 2:
