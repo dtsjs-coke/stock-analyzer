@@ -671,8 +671,26 @@ class StreamlitStockAnalyzer:
             paper_bgcolor='white'
         )
 
+        # 거래량이 0인 날짜 찾기 (휴장일)
+        non_trading_days = data[data['Volume'] == 0].index.strftime('%Y-%m-%d').tolist()
+
+        # 모든 서브플롯에 주말 및 휴장일 제거 적용
         for i in range(1, 7):
-            fig.update_xaxes(showgrid=True, gridwidth=0.5, gridcolor='rgba(128,128,128,0.2)', row=i, col=1)
+            rangebreaks_list = [
+                dict(bounds=["sat", "mon"]),  # 주말(토요일 00:00 ~ 월요일 00:00) 제거
+            ]
+
+            # 거래량 0인 날짜 추가 (휴장일)
+            if non_trading_days:
+                rangebreaks_list.append(dict(values=non_trading_days))
+
+            fig.update_xaxes(
+                showgrid=True,
+                gridwidth=0.5,
+                gridcolor='rgba(128,128,128,0.2)',
+                rangebreaks=rangebreaks_list,
+                row=i, col=1
+            )
             fig.update_yaxes(showgrid=True, gridwidth=0.5, gridcolor='rgba(128,128,128,0.2)', row=i, col=1)
 
         return fig
